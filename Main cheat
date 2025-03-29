@@ -161,12 +161,16 @@ local function createDropdownMenu(parent, buttons, heightOffset)
     return dropdown
 end
 
--- Fly с правильным управлением
+-- Улучшенная система полета
 local Fly = {
     Enabled = false,
     Speed = 50,
+    VerticalSpeed = 25,
     BodyVelocity = nil,
-    Connections = {}
+    BodyGyro = nil,
+    Connections = {},
+    MoveDirection = Vector3.new(0, 0, 0),
+    LastCameraCFrame = nil
 }
 
 local function toggleFly()
@@ -175,6 +179,7 @@ local function toggleFly()
     local player = game:GetService("Players").LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
+    local rootPart = character:WaitForChild("HumanoidRootPart")
     
     -- Очищаем предыдущие соединения
     for _, conn in ipairs(Fly.Connections) do
@@ -185,49 +190,64 @@ local function toggleFly()
     if Fly.Enabled then
         print("Fly: ON")
         
-        -- Создаем BodyVelocity для управления полетом
+        -- Создаем физические объекты для полета
         if Fly.BodyVelocity then Fly.BodyVelocity:Destroy() end
+        if Fly.BodyGyro then Fly.BodyGyro:Destroy() end
         
-        local rootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
         Fly.BodyVelocity = Instance.new("BodyVelocity")
         Fly.BodyVelocity.Velocity = Vector3.new(0, 0, 0)
         Fly.BodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+        Fly.BodyVelocity.P = 1250
         Fly.BodyVelocity.Parent = rootPart
         
-        -- Обработка ввода
-        local moveDirection = Vector3.new(0, 0, 0)
+        Fly.BodyGyro = Instance.new("BodyGyro")
+        Fly.BodyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
+        Fly.BodyGyro.P = 1250
+        Fly.BodyGyro.D = 250
+        Fly.BodyGyro.CFrame = rootPart.CFrame
+        Fly.BodyGyro.Parent = rootPart
         
+        -- Сбрасываем направление движения
+        Fly.MoveDirection = Vector3.new(0, 0, 0)
+        Fly.LastCameraCFrame = workspace.CurrentCamera.CFrame
+        
+        -- Функция обновления скорости
         local function updateVelocity()
             if not Fly.Enabled or not Fly.BodyVelocity then return end
             
             local camera = workspace.CurrentCamera
-            local cf = camera.CFrame
-            local lookVector = cf.LookVector
-            local rightVector = cf.RightVector
+            local lookVector = camera.CFrame.LookVector
+            local rightVector = camera.CFrame.RightVector
             
-            local velocity = (lookVector * moveDirection.Z * Fly.Speed) + 
-                           (rightVector * moveDirection.X * Fly.Speed) + 
-                           (Vector3.new(0, 1, 0) * moveDirection.Y * Fly.Speed)
+            -- Рассчитываем скорость относительно камеры
+            local velocity = (lookVector * Fly.MoveDirection.Z * Fly.Speed) + 
+                           (rightVector * Fly.MoveDirection.X * Fly.Speed) + 
+                           (Vector3.new(0, 1, 0) * Fly.MoveDirection.Y * Fly.VerticalSpeed)
             
             Fly.BodyVelocity.Velocity = velocity
+            
+            -- Обновляем BodyGyro для стабилизации
+            if Fly.BodyGyro then
+                Fly.BodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + lookVector)
+            end
         end
         
-        -- Подключаем обработчики ввода
+        -- Обработка ввода
         table.insert(Fly.Connections, game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             
             if input.KeyCode == Enum.KeyCode.Space then
-                moveDirection = Vector3.new(moveDirection.X, 1, moveDirection.Z)
-            elseif input.KeyCode == Enum.KeyCode.LeftShift then
-                moveDirection = Vector3.new(moveDirection.X, -1, moveDirection.Z)
+                Fly.MoveDirection = Vector3.new(Fly.MoveDirection.X, 1, Fly.MoveDirection.Z)
+            elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.LeftControl then
+                Fly.MoveDirection = Vector3.new(Fly.MoveDirection.X, -1, Fly.MoveDirection.Z)
             elseif input.KeyCode == Enum.KeyCode.W then
-                moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, -1)
+                Fly.MoveDirection = Vector3.new(Fly.MoveDirection.X, Fly.MoveDirection.Y, -1)
             elseif input.KeyCode == Enum.KeyCode.S then
-                moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, 1)
+                Fly.MoveDirection = Vector3.new(Fly.MoveDirection.X, Fly.MoveDirection.Y, 1)
             elseif input.KeyCode == Enum.KeyCode.A then
-                moveDirection = Vector3.new(-1, moveDirection.Y, moveDirection.Z)
+                Fly.MoveDirection = Vector3.new(-1, Fly.MoveDirection.Y, Fly.MoveDirection.Z)
             elseif input.KeyCode == Enum.KeyCode.D then
-                moveDirection = Vector3.new(1, moveDirection.Y, moveDirection.Z)
+                Fly.MoveDirection = Vector3.new(1, Fly.MoveDirection.Y, Fly.MoveDirection.Z)
             end
             
             updateVelocity()
@@ -236,31 +256,46 @@ local function toggleFly()
         table.insert(Fly.Connections, game:GetService("UserInputService").InputEnded:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             
-            if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftShift then
-                moveDirection = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+            if input.KeyCode == Enum.KeyCode.Space then
+                Fly.MoveDirection = Vector3.new(Fly.MoveDirection.X, 0, Fly.MoveDirection.Z)
+            elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.LeftControl then
+                Fly.MoveDirection = Vector3.new(Fly.MoveDirection.X, 0, Fly.MoveDirection.Z)
             elseif input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.S then
-                moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, 0)
+                Fly.MoveDirection = Vector3.new(Fly.MoveDirection.X, Fly.MoveDirection.Y, 0)
             elseif input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.D then
-                moveDirection = Vector3.new(0, moveDirection.Y, moveDirection.Z)
+                Fly.MoveDirection = Vector3.new(0, Fly.MoveDirection.Y, Fly.MoveDirection.Z)
             end
             
             updateVelocity()
         end))
         
-        -- Обновляем состояние
+        -- Постоянное обновление
+        table.insert(Fly.Connections, game:GetService("RunService").Heartbeat:Connect(updateVelocity))
+        
+        -- Изменяем состояние гуманоида
         humanoid:ChangeState(Enum.HumanoidStateType.Flying)
     else
         print("Fly: OFF")
+        
+        -- Удаляем физические объекты
         if Fly.BodyVelocity then
             Fly.BodyVelocity:Destroy()
             Fly.BodyVelocity = nil
         end
         
-        humanoid:ChangeState(Enum.HumanoidStateType.Falling)
+        if Fly.BodyGyro then
+            Fly.BodyGyro:Destroy()
+            Fly.BodyGyro = nil
+        end
+        
+        -- Возвращаем обычное состояние
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Falling)
+        end
     end
 end
 
--- Aimbot с настраиваемым FOV Circle
+-- Улучшенный Aimbot с гарантированным включением
 local Aimbot = {
     Enabled = false,
     FOV = 300,
@@ -275,6 +310,7 @@ local Aimbot = {
 local function updateFOVCircle()
     if Aimbot.FOVCircle then
         Aimbot.FOVCircle:Remove()
+        Aimbot.FOVCircle = nil
     end
     
     if not Aimbot.Enabled then return end
@@ -325,6 +361,12 @@ local function getClosestPlayer()
 end
 
 local function toggleAimbot()
+    -- Всегда отключаем предыдущее соединение, если оно есть
+    if Aimbot.Connection then
+        Aimbot.Connection:Disconnect()
+        Aimbot.Connection = nil
+    end
+    
     Aimbot.Enabled = not Aimbot.Enabled
     updateFOVCircle()
     
@@ -334,13 +376,16 @@ local function toggleAimbot()
         Aimbot.Connection = game:GetService("RunService").RenderStepped:Connect(function()
             if not Aimbot.Enabled then return end
             
+            -- Получаем текущую камеру каждый кадр на случай ее изменения
+            local camera = workspace.CurrentCamera
+            if not camera then return end
+            
             local closestPlayer = getClosestPlayer()
             if not closestPlayer then return end
             
             local targetPart = closestPlayer.Character:FindFirstChild(Aimbot.TargetPart)
             if not targetPart then return end
             
-            local camera = workspace.CurrentCamera
             local cameraCFrame = camera.CFrame
             local cameraPosition = cameraCFrame.Position
             local targetPosition = targetPart.Position
@@ -353,10 +398,6 @@ local function toggleAimbot()
         end)
     else
         print("Aimbot: OFF")
-        if Aimbot.Connection then
-            Aimbot.Connection:Disconnect()
-            Aimbot.Connection = nil
-        end
         if Aimbot.FOVCircle then
             Aimbot.FOVCircle:Remove()
             Aimbot.FOVCircle = nil
@@ -870,8 +911,9 @@ local GlobalDropdown = createDropdownMenu(GlobalButton, {
     {Name = "Aimbot", Text = "Aimbot", Callback = toggleAimbot, KeepOpen = true},
     {Name = "ESP", Text = "ESP", Callback = toggleESP, KeepOpen = true},
     {Name = "Fly", Text = "Fly", Callback = toggleFly, KeepOpen = true},
-    {Name = "FOVSlider", Text = "", Height = 50}
-}, 160)
+    {Name = "FOVSlider", Text = "", Height = 50},
+    {Name = "SmoothnessSlider", Text = "", Height = 50}
+}, 210)
 
 local MiscDropdown = createDropdownMenu(MiscButton, {
     {Name = "BunnyHop", Text = "Bunny Hop", Callback = toggleBunnyHop},
@@ -880,10 +922,31 @@ local MiscDropdown = createDropdownMenu(MiscButton, {
     {Name = "Noclip", Text = "Noclip", Callback = toggleNoclip}
 })
 
--- Добавляем ползунок FOV в Global меню
+-- Добавляем ползунки в Global меню
 local fovSlider = createSlider(GlobalDropdown:FindFirstChild("FOVSlider"), "Aimbot FOV", 50, 1000, Aimbot.FOV, function(value)
     Aimbot.FOV = value
-    updateFOVCircle()
+    -- При изменении FOV перезагружаем Aimbot, если он включен
+    if Aimbot.Enabled then
+        local wasEnabled = Aimbot.Enabled
+        toggleAimbot() -- Выключаем
+        if wasEnabled then
+            toggleAimbot() -- Включаем снова с новыми настройками
+        end
+    else
+        updateFOVCircle() -- Просто обновляем круг, если Aimbot выключен
+    end
+end)
+
+local smoothnessSlider = createSlider(GlobalDropdown:FindFirstChild("SmoothnessSlider"), "Smoothness", 0.1, 1, Aimbot.Smoothness, function(value)
+    Aimbot.Smoothness = value
+    -- При изменении Smoothness перезагружаем Aimbot, если он включен
+    if Aimbot.Enabled then
+        local wasEnabled = Aimbot.Enabled
+        toggleAimbot() -- Выключаем
+        if wasEnabled then
+            toggleAimbot() -- Включаем снова с новыми настройками
+        end
+    end
 end)
 
 -- Добавляем кнопки для пресетов
