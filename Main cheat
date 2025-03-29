@@ -405,10 +405,11 @@ local function toggleAimbot()
     end
 end
 
--- ESP
+-- Улучшенный ESP с отображением здоровья
 local ESP = {
     Enabled = false,
     BoxColor = Color3.fromRGB(0, 255, 0),
+    HealthColor = Color3.fromRGB(255, 0, 0),
     TeamCheck = false,
     Drawings = {}
 }
@@ -417,6 +418,7 @@ local function clearESP()
     for _, drawings in pairs(ESP.Drawings) do
         if drawings.Box then drawings.Box:Remove() end
         if drawings.Name then drawings.Name:Remove() end
+        if drawings.Health then drawings.Health:Remove() end
     end
     ESP.Drawings = {}
 end
@@ -434,22 +436,33 @@ local function updateESP()
         
         ESP.Drawings[player] = {
             Box = Drawing.new("Square"),
-            Name = Drawing.new("Text")
+            Name = Drawing.new("Text"),
+            Health = Drawing.new("Text")
         }
         
         local drawings = ESP.Drawings[player]
         
+        -- Настройка рамки
         drawings.Box.Visible = false
         drawings.Box.Color = ESP.BoxColor
         drawings.Box.Thickness = 2
         drawings.Box.Filled = false
         
+        -- Настройка ника
         drawings.Name.Visible = false
         drawings.Name.Color = ESP.BoxColor
         drawings.Name.Size = 14
         drawings.Name.Center = true
         drawings.Name.Outline = true
         drawings.Name.Text = player.Name
+        
+        -- Настройка здоровья (крупный текст)
+        drawings.Health.Visible = false
+        drawings.Health.Color = ESP.HealthColor
+        drawings.Health.Size = 20  -- Увеличенный размер шрифта
+        drawings.Health.Center = true
+        drawings.Health.Outline = true
+        drawings.Health.Text = "100%"
     end
     
     local function updatePlayerESP(player)
@@ -460,6 +473,7 @@ local function updateESP()
         if not character then
             drawings.Box.Visible = false
             drawings.Name.Visible = false
+            drawings.Health.Visible = false
             return
         end
         
@@ -467,6 +481,7 @@ local function updateESP()
         if not humanoid or humanoid.Health <= 0 then
             drawings.Box.Visible = false
             drawings.Name.Visible = false
+            drawings.Health.Visible = false
             return
         end
         
@@ -483,15 +498,33 @@ local function updateESP()
             local height = (headPos.Y - rootPos.Y) * 2
             local width = height * 0.6
             
+            -- Рамка
             drawings.Box.Position = Vector2.new(rootPos.X - width/2, rootPos.Y - height/2)
             drawings.Box.Size = Vector2.new(width, height)
             drawings.Box.Visible = true
             
+            -- Ник игрока
             drawings.Name.Position = Vector2.new(rootPos.X, rootPos.Y - height/2 - 20)
             drawings.Name.Visible = true
+            
+            -- Здоровье (над ником, крупным шрифтом)
+            local healthPercent = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
+            drawings.Health.Text = tostring(healthPercent) .. "%"
+            drawings.Health.Position = Vector2.new(rootPos.X, rootPos.Y - height/2 - 45)  -- Выше ника
+            drawings.Health.Visible = true
+            
+            -- Меняем цвет здоровья в зависимости от процентов
+            if healthPercent > 70 then
+                drawings.Health.Color = Color3.fromRGB(0, 255, 0)  -- Зеленый
+            elseif healthPercent > 30 then
+                drawings.Health.Color = Color3.fromRGB(255, 255, 0)  -- Желтый
+            else
+                drawings.Health.Color = Color3.fromRGB(255, 0, 0)  -- Красный
+            end
         else
             drawings.Box.Visible = false
             drawings.Name.Visible = false
+            drawings.Health.Visible = false
         end
     end
     
