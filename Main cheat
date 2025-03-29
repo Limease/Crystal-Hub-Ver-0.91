@@ -597,6 +597,57 @@ local function toggleBunnyHop()
     end
 end
 
+-- Moon Jump
+local MoonJump = {
+    Enabled = false,
+    JumpPower = 100,
+    OriginalJumpPower = nil,
+    Connection = nil
+}
+
+local function toggleMoonJump()
+    MoonJump.Enabled = not MoonJump.Enabled
+    
+    if MoonJump.Enabled then
+        print("Moon Jump: ON")
+        
+        local player = game:GetService("Players").LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:WaitForChild("Humanoid")
+        
+        -- Сохраняем оригинальное значение
+        MoonJump.OriginalJumpPower = humanoid.JumpPower
+        
+        -- Устанавливаем новое значение
+        humanoid.JumpPower = MoonJump.JumpPower
+        
+        MoonJump.Connection = game:GetService("UserInputService").JumpRequest:Connect(function()
+            if MoonJump.Enabled and humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    else
+        print("Moon Jump: OFF")
+        
+        -- Восстанавливаем оригинальное значение
+        if MoonJump.OriginalJumpPower then
+            local player = game:GetService("Players").LocalPlayer
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.JumpPower = MoonJump.OriginalJumpPower
+                end
+            end
+        end
+        
+        if MoonJump.Connection then
+            MoonJump.Connection:Disconnect()
+            MoonJump.Connection = nil
+        end
+    end
+end
+
 -- Snaplines
 local Snaplines = {
     Enabled = false,
@@ -850,6 +901,7 @@ local Presets = {
             ESP = {Enabled = false},
             Fly = {Enabled = false, Speed = 50},
             BunnyHop = {Enabled = false, Speed = 30, JumpPower = 50},
+            MoonJump = {Enabled = false, JumpPower = 100},
             Snaplines = {Enabled = false},
             NoSpread = {Enabled = false},
             Noclip = {Enabled = false}
@@ -875,6 +927,10 @@ local function savePreset(name)
             Enabled = BunnyHop.Enabled,
             Speed = BunnyHop.Speed,
             JumpPower = BunnyHop.JumpPower
+        },
+        MoonJump = {
+            Enabled = MoonJump.Enabled,
+            JumpPower = MoonJump.JumpPower
         },
         Snaplines = {
             Enabled = Snaplines.Enabled
@@ -919,6 +975,12 @@ local function loadPreset(name)
         toggleBunnyHop()
     end
     
+    -- Moon Jump
+    MoonJump.JumpPower = preset.MoonJump.JumpPower or MoonJump.JumpPower
+    if preset.MoonJump.Enabled ~= nil and MoonJump.Enabled ~= preset.MoonJump.Enabled then
+        toggleMoonJump()
+    end
+    
     -- Snaplines
     if preset.Snaplines.Enabled ~= nil and Snaplines.Enabled ~= preset.Snaplines.Enabled then
         toggleSnaplines()
@@ -950,6 +1012,7 @@ local GlobalDropdown = createDropdownMenu(GlobalButton, {
 
 local MiscDropdown = createDropdownMenu(MiscButton, {
     {Name = "BunnyHop", Text = "Bunny Hop", Callback = toggleBunnyHop},
+    {Name = "MoonJump", Text = "Moon Jump", Callback = toggleMoonJump},
     {Name = "Snaplines", Text = "Snaplines", Callback = toggleSnaplines},
     {Name = "NoSpread", Text = "No Spread", Callback = toggleNoSpread},
     {Name = "Noclip", Text = "Noclip", Callback = toggleNoclip}
@@ -1102,6 +1165,9 @@ local function testAllFeatures()
     toggleBunnyHop()
     wait(1)
     toggleBunnyHop()
+    toggleMoonJump()
+    wait(1)
+    toggleMoonJump()
     toggleSnaplines()
     wait(1)
     toggleSnaplines()
