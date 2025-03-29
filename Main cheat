@@ -1,0 +1,1028 @@
+-- Настройки GUI
+local GUI = {
+    Size = UDim2.new(0, 550, 0, 400),
+    Position = UDim2.new(0.5, -275, 0.5, -200),
+    BackgroundColor = Color3.fromRGB(15, 15, 15),
+    BorderColor = Color3.fromRGB(50, 50, 50),
+    TabColor = Color3.fromRGB(25, 25, 25),
+    ButtonColor = Color3.fromRGB(40, 40, 40),
+    TextColor = Color3.fromRGB(220, 220, 220),
+    AccentColor = Color3.fromRGB(0, 150, 255),
+    NoSpreadColor = Color3.fromRGB(255, 100, 100),
+    NoclipColor = Color3.fromRGB(150, 0, 255)
+}
+
+-- Основное окно
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "XenoGUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+
+-- Суперэллипс
+local function applySuperEllipseCorner(frame, cornerRadius)
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, cornerRadius)
+    UICorner.Parent = frame
+    frame.ClipsDescendants = true
+end
+
+-- Основной фрейм
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = GUI.BackgroundColor
+MainFrame.BorderColor3 = GUI.BorderColor
+MainFrame.BorderSizePixel = 2
+MainFrame.Position = GUI.Position
+MainFrame.Size = GUI.Size
+applySuperEllipseCorner(MainFrame, 20)
+
+-- Фрейм для вкладок
+local TabsFrame = Instance.new("Frame")
+TabsFrame.Name = "TabsFrame"
+TabsFrame.Parent = MainFrame
+TabsFrame.BackgroundColor3 = GUI.TabColor
+TabsFrame.BorderSizePixel = 0
+TabsFrame.Position = UDim2.new(0, 0, 0, 0)
+TabsFrame.Size = UDim2.new(1, 0, 0, 40)
+
+-- Контент фрейм
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Parent = MainFrame
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Position = UDim2.new(0, 10, 0, 50)
+ContentFrame.Size = UDim2.new(1, -20, 1, -60)
+
+-- Функция для создания кнопок
+local function createTabButton(name, position)
+    local button = Instance.new("TextButton")
+    button.Name = name .. "Button"
+    button.Parent = TabsFrame
+    button.BackgroundColor3 = GUI.ButtonColor
+    button.BorderSizePixel = 0
+    button.Position = position
+    button.Size = UDim2.new(0.32, 0, 1, 0)
+    button.Font = Enum.Font.GothamBold
+    button.Text = name
+    button.TextColor3 = GUI.TextColor
+    button.TextSize = 16
+    
+    applySuperEllipseCorner(button, 8)
+    
+    -- Анимка
+    button.MouseEnter:Connect(function()
+        game:GetService("TweenService"):Create(button, TweenInfo.new(0.2), {BackgroundColor3 = GUI.AccentColor}):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        game:GetService("TweenService"):Create(button, TweenInfo.new(0.2), {BackgroundColor3 = GUI.ButtonColor}):Play()
+    end)
+    
+    return button
+end
+
+-- Создаем кнопки вкладок
+local GlobalButton = createTabButton("Global", UDim2.new(0.02, 0, 0, 0))
+local MiscButton = createTabButton("Misc", UDim2.new(0.34, 0, 0, 0))
+local MoreButton = createTabButton("More", UDim2.new(0.66, 0, 0, 0))
+
+-- Выпадающее меню
+local function createDropdownMenu(parent, buttons, heightOffset)
+    local dropdown = Instance.new("Frame")
+    dropdown.Name = "DropdownMenu"
+    dropdown.Parent = parent.Parent
+    dropdown.BackgroundColor3 = GUI.TabColor
+    dropdown.BorderSizePixel = 0
+    dropdown.Position = UDim2.new(parent.Position.X.Scale, parent.Position.X.Offset, 0, 45)
+    dropdown.Size = UDim2.new(parent.Size.X.Scale, parent.Size.X.Offset, 0, (heightOffset or #buttons * 40) + 10)
+    dropdown.Visible = false
+    dropdown.ZIndex = 10
+    
+    applySuperEllipseCorner(dropdown, 12)
+    
+    local layout = Instance.new("UIListLayout")
+    layout.Parent = dropdown
+    layout.Padding = UDim.new(0, 5)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    for i, btnData in ipairs(buttons) do
+        local button = Instance.new("TextButton")
+        button.Name = btnData.Name
+        button.Parent = dropdown
+        button.BackgroundColor3 = GUI.ButtonColor
+        button.BorderSizePixel = 0
+        button.Size = UDim2.new(0.9, 0, 0, btnData.Height or 35)
+        button.Position = UDim2.new(0.05, 0, 0, (i-1)*(btnData.Height or 40) + 5)
+        button.Font = Enum.Font.Gotham
+        button.Text = btnData.Text
+        button.TextColor3 = GUI.TextColor
+        button.TextSize = 14
+        button.ZIndex = 11
+        
+        applySuperEllipseCorner(button, 6)
+        
+        -- Анимация кнопок
+        button.MouseEnter:Connect(function()
+            game:GetService("TweenService"):Create(button, TweenInfo.new(0.2), {BackgroundColor3 = GUI.AccentColor}):Play()
+        end)
+        
+        button.MouseLeave:Connect(function()
+            game:GetService("TweenService"):Create(button, TweenInfo.new(0.2), {BackgroundColor3 = GUI.ButtonColor}):Play()
+        end)
+        
+        if btnData.Callback then
+            button.MouseButton1Click:Connect(function()
+                btnData.Callback()
+                if not btnData.KeepOpen then
+                    dropdown.Visible = false
+                end
+            end)
+        end
+    end
+    
+    -- Закрытие меню при клике вне его
+    local function closeOnClickOutside(inputObject, gameProcessed)
+        if not gameProcessed and inputObject.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+            local absPos = dropdown.AbsolutePosition
+            local absSize = dropdown.AbsoluteSize
+            
+            if not (mousePos.X >= absPos.X and mousePos.X <= absPos.X + absSize.X and
+                   mousePos.Y >= absPos.Y and mousePos.Y <= absPos.Y + absSize.Y) then
+                dropdown.Visible = false
+            end
+        end
+    end
+    
+    game:GetService("UserInputService").InputBegan:Connect(closeOnClickOutside)
+    
+    return dropdown
+end
+
+-- Fly с правильным управлением
+local Fly = {
+    Enabled = false,
+    Speed = 50,
+    BodyVelocity = nil,
+    Connections = {}
+}
+
+local function toggleFly()
+    Fly.Enabled = not Fly.Enabled
+    
+    local player = game:GetService("Players").LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    -- Очищаем предыдущие соединения
+    for _, conn in ipairs(Fly.Connections) do
+        conn:Disconnect()
+    end
+    Fly.Connections = {}
+    
+    if Fly.Enabled then
+        print("Fly: ON")
+        
+        -- Создаем BodyVelocity для управления полетом
+        if Fly.BodyVelocity then Fly.BodyVelocity:Destroy() end
+        
+        local rootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
+        Fly.BodyVelocity = Instance.new("BodyVelocity")
+        Fly.BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        Fly.BodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+        Fly.BodyVelocity.Parent = rootPart
+        
+        -- Обработка ввода
+        local moveDirection = Vector3.new(0, 0, 0)
+        
+        local function updateVelocity()
+            if not Fly.Enabled or not Fly.BodyVelocity then return end
+            
+            local camera = workspace.CurrentCamera
+            local cf = camera.CFrame
+            local lookVector = cf.LookVector
+            local rightVector = cf.RightVector
+            
+            local velocity = (lookVector * moveDirection.Z * Fly.Speed) + 
+                           (rightVector * moveDirection.X * Fly.Speed) + 
+                           (Vector3.new(0, 1, 0) * moveDirection.Y * Fly.Speed)
+            
+            Fly.BodyVelocity.Velocity = velocity
+        end
+        
+        -- Подключаем обработчики ввода
+        table.insert(Fly.Connections, game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
+            if input.KeyCode == Enum.KeyCode.Space then
+                moveDirection = Vector3.new(moveDirection.X, 1, moveDirection.Z)
+            elseif input.KeyCode == Enum.KeyCode.LeftShift then
+                moveDirection = Vector3.new(moveDirection.X, -1, moveDirection.Z)
+            elseif input.KeyCode == Enum.KeyCode.W then
+                moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, -1)
+            elseif input.KeyCode == Enum.KeyCode.S then
+                moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, 1)
+            elseif input.KeyCode == Enum.KeyCode.A then
+                moveDirection = Vector3.new(-1, moveDirection.Y, moveDirection.Z)
+            elseif input.KeyCode == Enum.KeyCode.D then
+                moveDirection = Vector3.new(1, moveDirection.Y, moveDirection.Z)
+            end
+            
+            updateVelocity()
+        end))
+        
+        table.insert(Fly.Connections, game:GetService("UserInputService").InputEnded:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
+            if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftShift then
+                moveDirection = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+            elseif input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.S then
+                moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, 0)
+            elseif input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.D then
+                moveDirection = Vector3.new(0, moveDirection.Y, moveDirection.Z)
+            end
+            
+            updateVelocity()
+        end))
+        
+        -- Обновляем состояние
+        humanoid:ChangeState(Enum.HumanoidStateType.Flying)
+    else
+        print("Fly: OFF")
+        if Fly.BodyVelocity then
+            Fly.BodyVelocity:Destroy()
+            Fly.BodyVelocity = nil
+        end
+        
+        humanoid:ChangeState(Enum.HumanoidStateType.Falling)
+    end
+end
+
+-- Aimbot с настраиваемым FOV Circle
+local Aimbot = {
+    Enabled = false,
+    FOV = 300,
+    Smoothness = 0.2,
+    TargetPart = "HumanoidRootPart",
+    TeamCheck = false,
+    Connection = nil,
+    FOVCircle = nil
+}
+
+-- Функция для обновления FOV Circle
+local function updateFOVCircle()
+    if Aimbot.FOVCircle then
+        Aimbot.FOVCircle:Remove()
+    end
+    
+    if not Aimbot.Enabled then return end
+    
+    local circle = Drawing.new("Circle")
+    circle.Visible = true
+    circle.Transparency = 0.5
+    circle.Color = Color3.fromRGB(0, 150, 255)
+    circle.Thickness = 1
+    circle.NumSides = 100
+    circle.Radius = Aimbot.FOV
+    circle.Filled = false
+    circle.Position = workspace.CurrentCamera.ViewportSize / 2
+    
+    Aimbot.FOVCircle = circle
+end
+
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = Aimbot.FOV
+    
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local camera = workspace.CurrentCamera
+    
+    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local character = player.Character
+            local humanoid = character:FindFirstChild("Humanoid")
+            if not humanoid or humanoid.Health <= 0 then continue end
+            
+            local targetPart = character:FindFirstChild(Aimbot.TargetPart)
+            if not targetPart then continue end
+            
+            local screenPoint = camera:WorldToViewportPoint(targetPart.Position)
+            if screenPoint.Z > 0 then
+                local mouse = game:GetService("UserInputService"):GetMouseLocation()
+                local distance = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPoint.X, screenPoint.Y)).Magnitude
+                
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+local function toggleAimbot()
+    Aimbot.Enabled = not Aimbot.Enabled
+    updateFOVCircle()
+    
+    if Aimbot.Enabled then
+        print("Aimbot: ON (FOV: "..Aimbot.FOV..")")
+        
+        Aimbot.Connection = game:GetService("RunService").RenderStepped:Connect(function()
+            if not Aimbot.Enabled then return end
+            
+            local closestPlayer = getClosestPlayer()
+            if not closestPlayer then return end
+            
+            local targetPart = closestPlayer.Character:FindFirstChild(Aimbot.TargetPart)
+            if not targetPart then return end
+            
+            local camera = workspace.CurrentCamera
+            local cameraCFrame = camera.CFrame
+            local cameraPosition = cameraCFrame.Position
+            local targetPosition = targetPart.Position
+            
+            local direction = (targetPosition - cameraPosition).Unit
+            local lookVector = cameraCFrame.LookVector
+            
+            local newLookVector = lookVector:Lerp(direction, 1 - Aimbot.Smoothness)
+            camera.CFrame = CFrame.new(cameraPosition, cameraPosition + newLookVector)
+        end)
+    else
+        print("Aimbot: OFF")
+        if Aimbot.Connection then
+            Aimbot.Connection:Disconnect()
+            Aimbot.Connection = nil
+        end
+        if Aimbot.FOVCircle then
+            Aimbot.FOVCircle:Remove()
+            Aimbot.FOVCircle = nil
+        end
+    end
+end
+
+-- ESP
+local ESP = {
+    Enabled = false,
+    BoxColor = Color3.fromRGB(0, 255, 0),
+    TeamCheck = false,
+    Drawings = {}
+}
+
+local function clearESP()
+    for _, drawings in pairs(ESP.Drawings) do
+        if drawings.Box then drawings.Box:Remove() end
+        if drawings.Name then drawings.Name:Remove() end
+    end
+    ESP.Drawings = {}
+end
+
+local function updateESP()
+    clearESP()
+    
+    if not ESP.Enabled then return end
+    
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local camera = workspace.CurrentCamera
+    
+    local function createESP(player)
+        if ESP.Drawings[player] then return end
+        
+        ESP.Drawings[player] = {
+            Box = Drawing.new("Square"),
+            Name = Drawing.new("Text")
+        }
+        
+        local drawings = ESP.Drawings[player]
+        
+        drawings.Box.Visible = false
+        drawings.Box.Color = ESP.BoxColor
+        drawings.Box.Thickness = 2
+        drawings.Box.Filled = false
+        
+        drawings.Name.Visible = false
+        drawings.Name.Color = ESP.BoxColor
+        drawings.Name.Size = 14
+        drawings.Name.Center = true
+        drawings.Name.Outline = true
+        drawings.Name.Text = player.Name
+    end
+    
+    local function updatePlayerESP(player)
+        if not ESP.Drawings[player] then return end
+        
+        local drawings = ESP.Drawings[player]
+        local character = player.Character
+        if not character then
+            drawings.Box.Visible = false
+            drawings.Name.Visible = false
+            return
+        end
+        
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then
+            drawings.Box.Visible = false
+            drawings.Name.Visible = false
+            return
+        end
+        
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+        
+        local head = character:FindFirstChild("Head")
+        if not head then return end
+        
+        local rootPos, rootVis = camera:WorldToViewportPoint(rootPart.Position)
+        local headPos = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+        
+        if rootVis then
+            local height = (headPos.Y - rootPos.Y) * 2
+            local width = height * 0.6
+            
+            drawings.Box.Position = Vector2.new(rootPos.X - width/2, rootPos.Y - height/2)
+            drawings.Box.Size = Vector2.new(width, height)
+            drawings.Box.Visible = true
+            
+            drawings.Name.Position = Vector2.new(rootPos.X, rootPos.Y - height/2 - 20)
+            drawings.Name.Visible = true
+        else
+            drawings.Box.Visible = false
+            drawings.Name.Visible = false
+        end
+    end
+    
+    -- Создаем ESP для всех игроков
+    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= localPlayer then
+            createESP(player)
+        end
+    end
+    
+    -- Обновляем ESP каждый кадр
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if not ESP.Enabled then return end
+        
+        for player, _ in pairs(ESP.Drawings) do
+            updatePlayerESP(player)
+        end
+    end)
+end
+
+local function toggleESP()
+    ESP.Enabled = not ESP.Enabled
+    updateESP()
+    print("ESP: " .. (ESP.Enabled and "ON" or "OFF"))
+end
+
+-- Bunny Hop
+local BunnyHop = {
+    Enabled = false,
+    Speed = 30,
+    JumpPower = 50,
+    Connection = nil
+}
+
+local function toggleBunnyHop()
+    BunnyHop.Enabled = not BunnyHop.Enabled
+    
+    if BunnyHop.Enabled then
+        print("Bunny Hop: ON")
+        
+        local player = game:GetService("Players").LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:WaitForChild("Humanoid")
+        
+        -- Сохраняем оригинальные значения
+        local originalWalkSpeed = humanoid.WalkSpeed
+        local originalJumpPower = humanoid.JumpPower
+        
+        -- Устанавливаем новые значения
+        humanoid.WalkSpeed = BunnyHop.Speed
+        humanoid.JumpPower = BunnyHop.JumpPower
+        
+        BunnyHop.Connection = game:GetService("RunService").Heartbeat:Connect(function()
+            if not BunnyHop.Enabled or not humanoid or humanoid.Health <= 0 then
+                humanoid.WalkSpeed = originalWalkSpeed
+                humanoid.JumpPower = originalJumpPower
+                return
+            end
+            
+            if humanoid:GetState() == Enum.HumanoidStateType.Running then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    else
+        print("Bunny Hop: OFF")
+        if BunnyHop.Connection then
+            BunnyHop.Connection:Disconnect()
+            BunnyHop.Connection = nil
+        end
+    end
+end
+
+-- Snaplines
+local Snaplines = {
+    Enabled = false,
+    Color = Color3.fromRGB(0, 150, 255),
+    TeamCheck = false,
+    Lines = {}
+}
+
+local function clearSnaplines()
+    for _, line in pairs(Snaplines.Lines) do
+        if line then line:Remove() end
+    end
+    Snaplines.Lines = {}
+end
+
+local function updateSnaplines()
+    clearSnaplines()
+    
+    if not Snaplines.Enabled then return end
+    
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local camera = workspace.CurrentCamera
+    
+    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            if Snaplines.TeamCheck and player.Team == localPlayer.Team then continue end
+            
+            local character = player.Character
+            local humanoid = character:FindFirstChild("Humanoid")
+            if not humanoid or humanoid.Health <= 0 then continue end
+            
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            if not rootPart then continue end
+            
+            local line = Drawing.new("Line")
+            line.Visible = false
+            line.Color = Snaplines.Color
+            line.Thickness = 1
+            
+            Snaplines.Lines[player] = line
+            
+            local function updateLine()
+                if not Snaplines.Enabled or not player.Character then
+                    line:Remove()
+                    Snaplines.Lines[player] = nil
+                    return
+                end
+                
+                local localRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                
+                if not localRoot or not targetRoot then
+                    line.Visible = false
+                    return
+                end
+                
+                local localPos = camera:WorldToViewportPoint(localRoot.Position)
+                local targetPos = camera:WorldToViewportPoint(targetRoot.Position)
+                
+                if localPos.Z > 0 and targetPos.Z > 0 then
+                    line.From = Vector2.new(localPos.X, localPos.Y)
+                    line.To = Vector2.new(targetPos.X, targetPos.Y)
+                    line.Visible = true
+                else
+                    line.Visible = false
+                end
+            end
+            
+            game:GetService("RunService").RenderStepped:Connect(updateLine)
+        end
+    end
+end
+
+local function toggleSnaplines()
+    Snaplines.Enabled = not Snaplines.Enabled
+    updateSnaplines()
+    print("Snaplines: " .. (Snaplines.Enabled and "ON" or "OFF"))
+end
+
+-- No Spread
+local NoSpread = {
+    Enabled = false,
+    OriginalValues = {},
+    Connection = nil
+}
+
+local function toggleNoSpread()
+    NoSpread.Enabled = not NoSpread.Enabled
+    
+    if NoSpread.Enabled then
+        print("No Spread: ON")
+        
+        local player = game:GetService("Players").LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local weapon = character:FindFirstChildOfClass("Tool")
+        
+        if weapon then
+            for _, v in pairs(weapon:GetDescendants()) do
+                if v:IsA("NumberValue") and (v.Name:lower():find("spread") or v.Name:lower():find("recoil")) then
+                    NoSpread.OriginalValues[v] = v.Value
+                    v.Value = 0
+                end
+            end
+        end
+        
+        NoSpread.Connection = game:GetService("RunService").Heartbeat:Connect(function()
+            if not NoSpread.Enabled then return end
+            
+            local weapon = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if weapon then
+                for _, v in pairs(weapon:GetDescendants()) do
+                    if v:IsA("NumberValue") and (v.Name:lower():find("spread") or v.Name:lower():find("recoil")) then
+                        v.Value = 0
+                    end
+                end
+            end
+        end)
+    else
+        print("No Spread: OFF")
+        
+        for obj, value in pairs(NoSpread.OriginalValues) do
+            if obj and obj.Parent then
+                obj.Value = value
+            end
+        end
+        
+        if NoSpread.Connection then
+            NoSpread.Connection:Disconnect()
+            NoSpread.Connection = nil
+        end
+    end
+end
+
+-- Noclip
+local Noclip = {
+    Enabled = false,
+    Connection = nil
+}
+
+local function toggleNoclip()
+    Noclip.Enabled = not Noclip.Enabled
+    
+    if Noclip.Enabled then
+        print("Noclip: ON")
+        
+        Noclip.Connection = game:GetService("RunService").Stepped:Connect(function()
+            if not Noclip.Enabled then return end
+            
+            local character = game:GetService("Players").LocalPlayer.Character
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        print("Noclip: OFF")
+        
+        if Noclip.Connection then
+            Noclip.Connection:Disconnect()
+            Noclip.Connection = nil
+        end
+        
+        local character = game:GetService("Players").LocalPlayer.Character
+        if character then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+-- Функция для создания ползунка
+local function createSlider(parent, text, minValue, maxValue, defaultValue, callback)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Name = text.."SliderFrame"
+    sliderFrame.Parent = parent
+    sliderFrame.BackgroundTransparency = 1
+    sliderFrame.Size = UDim2.new(0.9, 0, 0, 50)
+    
+    local label = Instance.new("TextLabel")
+    label.Name = text.."Label"
+    label.Parent = sliderFrame
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.Font = Enum.Font.Gotham
+    label.Text = text..": "..defaultValue
+    label.TextColor3 = GUI.TextColor
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local track = Instance.new("Frame")
+    track.Name = "Track"
+    track.Parent = sliderFrame
+    track.BackgroundColor3 = GUI.ButtonColor
+    track.BorderSizePixel = 0
+    track.Position = UDim2.new(0, 0, 0, 25)
+    track.Size = UDim2.new(1, 0, 0, 5)
+    applySuperEllipseCorner(track, 3)
+    
+    local thumb = Instance.new("TextButton")
+    thumb.Name = "Thumb"
+    thumb.Parent = track
+    thumb.BackgroundColor3 = GUI.AccentColor
+    thumb.BorderSizePixel = 0
+    thumb.Size = UDim2.new(0, 15, 0, 15)
+    thumb.Position = UDim2.new((defaultValue - minValue)/(maxValue - minValue), -5, 0, -5)
+    thumb.Text = ""
+    applySuperEllipseCorner(thumb, 7)
+    
+    local dragging = false
+    
+    thumb.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    
+    game:GetService("UserInputService").InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if dragging then
+            local mousePos = game:GetService("UserInputService"):GetMouseLocation().X
+            local absolutePos = track.AbsolutePosition.X
+            local absoluteSize = track.AbsoluteSize.X
+            
+            local relativePos = math.clamp(mousePos - absolutePos, 0, absoluteSize)
+            local value = minValue + (relativePos / absoluteSize) * (maxValue - minValue)
+            
+            thumb.Position = UDim2.new(relativePos/absoluteSize, -5, 0, -5)
+            label.Text = text..": "..math.floor(value)
+            callback(value)
+        end
+    end)
+    
+    return sliderFrame
+end
+
+-- Система сохранения пресетов
+local Presets = {
+    Current = "default",
+    List = {
+        default = {
+            Aimbot = {FOV = 300, Smoothness = 0.2},
+            ESP = {Enabled = false},
+            Fly = {Enabled = false, Speed = 50},
+            BunnyHop = {Enabled = false, Speed = 30, JumpPower = 50},
+            Snaplines = {Enabled = false},
+            NoSpread = {Enabled = false},
+            Noclip = {Enabled = false}
+        }
+    }
+}
+
+local function savePreset(name)
+    Presets.List[name] = {
+        Aimbot = {
+            FOV = Aimbot.FOV,
+            Smoothness = Aimbot.Smoothness,
+            Enabled = Aimbot.Enabled
+        },
+        ESP = {
+            Enabled = ESP.Enabled
+        },
+        Fly = {
+            Enabled = Fly.Enabled,
+            Speed = Fly.Speed
+        },
+        BunnyHop = {
+            Enabled = BunnyHop.Enabled,
+            Speed = BunnyHop.Speed,
+            JumpPower = BunnyHop.JumpPower
+        },
+        Snaplines = {
+            Enabled = Snaplines.Enabled
+        },
+        NoSpread = {
+            Enabled = NoSpread.Enabled
+        },
+        Noclip = {
+            Enabled = Noclip.Enabled
+        }
+    }
+    print("Preset saved: "..name)
+end
+
+local function loadPreset(name)
+    if not Presets.List[name] then return false end
+    
+    local preset = Presets.List[name]
+    
+    -- Aimbot
+    Aimbot.FOV = preset.Aimbot.FOV or Aimbot.FOV
+    Aimbot.Smoothness = preset.Aimbot.Smoothness or Aimbot.Smoothness
+    if preset.Aimbot.Enabled ~= nil and Aimbot.Enabled ~= preset.Aimbot.Enabled then
+        toggleAimbot()
+    end
+    
+    -- ESP
+    if preset.ESP.Enabled ~= nil and ESP.Enabled ~= preset.ESP.Enabled then
+        toggleESP()
+    end
+    
+    -- Fly
+    Fly.Speed = preset.Fly.Speed or Fly.Speed
+    if preset.Fly.Enabled ~= nil and Fly.Enabled ~= preset.Fly.Enabled then
+        toggleFly()
+    end
+    
+    -- Bunny Hop
+    BunnyHop.Speed = preset.BunnyHop.Speed or BunnyHop.Speed
+    BunnyHop.JumpPower = preset.BunnyHop.JumpPower or BunnyHop.JumpPower
+    if preset.BunnyHop.Enabled ~= nil and BunnyHop.Enabled ~= preset.BunnyHop.Enabled then
+        toggleBunnyHop()
+    end
+    
+    -- Snaplines
+    if preset.Snaplines.Enabled ~= nil and Snaplines.Enabled ~= preset.Snaplines.Enabled then
+        toggleSnaplines()
+    end
+    
+    -- No Spread
+    if preset.NoSpread and preset.NoSpread.Enabled ~= nil and NoSpread.Enabled ~= preset.NoSpread.Enabled then
+        toggleNoSpread()
+    end
+    
+    -- Noclip
+    if preset.Noclip and preset.Noclip.Enabled ~= nil and Noclip.Enabled ~= preset.Noclip.Enabled then
+        toggleNoclip()
+    end
+    
+    Presets.Current = name
+    print("Preset loaded: "..name)
+    return true
+end
+
+-- Создаем выпадающие меню
+local GlobalDropdown = createDropdownMenu(GlobalButton, {
+    {Name = "Aimbot", Text = "Aimbot", Callback = toggleAimbot, KeepOpen = true},
+    {Name = "ESP", Text = "ESP", Callback = toggleESP, KeepOpen = true},
+    {Name = "Fly", Text = "Fly", Callback = toggleFly, KeepOpen = true},
+    {Name = "FOVSlider", Text = "", Height = 50}
+}, 160)
+
+local MiscDropdown = createDropdownMenu(MiscButton, {
+    {Name = "BunnyHop", Text = "Bunny Hop", Callback = toggleBunnyHop},
+    {Name = "Snaplines", Text = "Snaplines", Callback = toggleSnaplines},
+    {Name = "NoSpread", Text = "No Spread", Callback = toggleNoSpread},
+    {Name = "Noclip", Text = "Noclip", Callback = toggleNoclip}
+})
+
+-- Добавляем ползунок FOV в Global меню
+local fovSlider = createSlider(GlobalDropdown:FindFirstChild("FOVSlider"), "Aimbot FOV", 50, 1000, Aimbot.FOV, function(value)
+    Aimbot.FOV = value
+    updateFOVCircle()
+end)
+
+-- Добавляем кнопки для пресетов
+local presetsFrame = Instance.new("Frame")
+presetsFrame.Name = "PresetsFrame"
+presetsFrame.Parent = ContentFrame
+presetsFrame.BackgroundTransparency = 1
+presetsFrame.Size = UDim2.new(1, 0, 0, 80)
+presetsFrame.Position = UDim2.new(0, 0, 0, 300)
+
+local saveButton = Instance.new("TextButton")
+saveButton.Name = "SavePreset"
+saveButton.Parent = presetsFrame
+saveButton.BackgroundColor3 = GUI.ButtonColor
+saveButton.Size = UDim2.new(0.45, 0, 0, 35)
+saveButton.Position = UDim2.new(0.025, 0, 0, 0)
+saveButton.Font = Enum.Font.Gotham
+saveButton.Text = "Save Preset"
+saveButton.TextColor3 = GUI.TextColor
+saveButton.TextSize = 14
+applySuperEllipseCorner(saveButton, 6)
+
+local loadButton = Instance.new("TextButton")
+loadButton.Name = "LoadPreset"
+loadButton.Parent = presetsFrame
+loadButton.BackgroundColor3 = GUI.ButtonColor
+loadButton.Size = UDim2.new(0.45, 0, 0, 35)
+loadButton.Position = UDim2.new(0.525, 0, 0, 0)
+loadButton.Font = Enum.Font.Gotham
+loadButton.Text = "Load Preset"
+loadButton.TextColor3 = GUI.TextColor
+loadButton.TextSize = 14
+applySuperEllipseCorner(loadButton, 6)
+
+local presetNameBox = Instance.new("TextBox")
+presetNameBox.Name = "PresetName"
+presetNameBox.Parent = presetsFrame
+presetNameBox.BackgroundColor3 = GUI.ButtonColor
+presetNameBox.Size = UDim2.new(0.9, 0, 0, 35)
+presetNameBox.Position = UDim2.new(0.05, 0, 0, 40)
+presetNameBox.Font = Enum.Font.Gotham
+presetNameBox.Text = "default"
+presetNameBox.TextColor3 = GUI.TextColor
+presetNameBox.TextSize = 14
+presetNameBox.PlaceholderText = "Preset name"
+applySuperEllipseCorner(presetNameBox, 6)
+
+saveButton.MouseButton1Click:Connect(function()
+    local name = presetNameBox.Text
+    if name ~= "" then
+        savePreset(name)
+    end
+end)
+
+loadButton.MouseButton1Click:Connect(function()
+    local name = presetNameBox.Text
+    if name ~= "" then
+        loadPreset(name)
+    end
+end)
+
+-- NEW: Контент для вкладки More
+local MoreContent = Instance.new("Frame")
+MoreContent.Name = "MoreContent"
+MoreContent.Parent = ContentFrame
+MoreContent.BackgroundTransparency = 1
+MoreContent.Size = UDim2.new(1, 0, 1, 0)
+MoreContent.Visible = false -- Сначала скрыто
+
+local telegramLabel = Instance.new("TextLabel")
+telegramLabel.Name = "TelegramLabel"
+telegramLabel.Parent = MoreContent
+telegramLabel.BackgroundTransparency = 1
+telegramLabel.Size = UDim2.new(1, 0, 0, 30)
+telegramLabel.Position = UDim2.new(0, 0, 0.6, 0) -- Позиция ниже центра
+telegramLabel.Font = Enum.Font.GothamBold
+telegramLabel.Text = "t.me/crystalhubultimate"
+telegramLabel.TextColor3 = GUI.AccentColor
+telegramLabel.TextSize = 18
+telegramLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+-- Обработчики вкладок
+GlobalButton.MouseButton1Click:Connect(function()
+    GlobalDropdown.Visible = not GlobalDropdown.Visible
+    MiscDropdown.Visible = false
+    MoreContent.Visible = false -- Скрываем контент More
+end)
+
+MiscButton.MouseButton1Click:Connect(function()
+    MiscDropdown.Visible = not MiscDropdown.Visible
+    GlobalDropdown.Visible = false
+    MoreContent.Visible = false -- Скрываем контент More
+end)
+
+MoreButton.MouseButton1Click:Connect(function()
+    GlobalDropdown.Visible = false
+    MiscDropdown.Visible = false
+    MoreContent.Visible = true -- Показываем контент More
+end)
+
+-- Закрытие по RShift
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
+
+-- Проверка всех функций
+local function testAllFeatures()
+    print("Testing all features...")
+    toggleAimbot()
+    wait(1)
+    toggleAimbot()
+    toggleESP()
+    wait(1)
+    toggleESP()
+    toggleFly()
+    wait(1)
+    toggleFly()
+    toggleBunnyHop()
+    wait(1)
+    toggleBunnyHop()
+    toggleSnaplines()
+    wait(1)
+    toggleSnaplines()
+    toggleNoSpread()
+    wait(1)
+    toggleNoSpread()
+    toggleNoclip()
+    wait(1)
+    toggleNoclip()
+    print("All features tested!")
+end
+
+-- Команда для тестирования
+game:GetService("Players").LocalPlayer.Chatted:Connect(function(message)
+    if message:lower() == "/testgui" then
+        testAllFeatures()
+    end
+end)
+
+print("Crystal Hub успешно загружен! Нажмите RightShift для переключения видимости.")
