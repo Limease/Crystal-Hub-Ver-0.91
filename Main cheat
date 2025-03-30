@@ -648,6 +648,60 @@ local function toggleMoonJump()
     end
 end
 
+-- FullBright
+local FullBright = {
+    Enabled = false,
+    OriginalLighting = {},
+    Connection = nil
+}
+
+local function toggleFullBright()
+    FullBright.Enabled = not FullBright.Enabled
+    
+    if FullBright.Enabled then
+        print("FullBright: ON")
+        
+        -- Сохраняем оригинальные настройки освещения
+        FullBright.OriginalLighting = {
+            Ambient = game:GetService("Lighting").Ambient,
+            OutdoorAmbient = game:GetService("Lighting").OutdoorAmbient,
+            Brightness = game:GetService("Lighting").Brightness,
+            GlobalShadows = game:GetService("Lighting").GlobalShadows
+        }
+        
+        -- Устанавливаем яркое освещение
+        game:GetService("Lighting").Ambient = Color3.new(1, 1, 1)
+        game:GetService("Lighting").OutdoorAmbient = Color3.new(1, 1, 1)
+        game:GetService("Lighting").Brightness = 2
+        game:GetService("Lighting").GlobalShadows = false
+        
+        -- Создаем соединение для автоматического восстановления при изменении освещения
+        FullBright.Connection = game:GetService("Lighting").Changed:Connect(function()
+            if FullBright.Enabled then
+                game:GetService("Lighting").Ambient = Color3.new(1, 1, 1)
+                game:GetService("Lighting").OutdoorAmbient = Color3.new(1, 1, 1)
+                game:GetService("Lighting").Brightness = 2
+                game:GetService("Lighting").GlobalShadows = false
+            end
+        end)
+    else
+        print("FullBright: OFF")
+        
+        -- Восстанавливаем оригинальные настройки освещения
+        if FullBright.OriginalLighting.Ambient then
+            game:GetService("Lighting").Ambient = FullBright.OriginalLighting.Ambient
+            game:GetService("Lighting").OutdoorAmbient = FullBright.OriginalLighting.OutdoorAmbient
+            game:GetService("Lighting").Brightness = FullBright.OriginalLighting.Brightness
+            game:GetService("Lighting").GlobalShadows = FullBright.OriginalLighting.GlobalShadows
+        end
+        
+        if FullBright.Connection then
+            FullBright.Connection:Disconnect()
+            FullBright.Connection = nil
+        end
+    end
+end
+
 -- Snaplines
 local Snaplines = {
     Enabled = false,
@@ -902,6 +956,7 @@ local Presets = {
             Fly = {Enabled = false, Speed = 50},
             BunnyHop = {Enabled = false, Speed = 30, JumpPower = 50},
             MoonJump = {Enabled = false, JumpPower = 100},
+            FullBright = {Enabled = false},
             Snaplines = {Enabled = false},
             NoSpread = {Enabled = false},
             Noclip = {Enabled = false}
@@ -931,6 +986,9 @@ local function savePreset(name)
         MoonJump = {
             Enabled = MoonJump.Enabled,
             JumpPower = MoonJump.JumpPower
+        },
+        FullBright = {
+            Enabled = FullBright.Enabled
         },
         Snaplines = {
             Enabled = Snaplines.Enabled
@@ -981,6 +1039,11 @@ local function loadPreset(name)
         toggleMoonJump()
     end
     
+    -- FullBright
+    if preset.FullBright and preset.FullBright.Enabled ~= nil and FullBright.Enabled ~= preset.FullBright.Enabled then
+        toggleFullBright()
+    end
+    
     -- Snaplines
     if preset.Snaplines.Enabled ~= nil and Snaplines.Enabled ~= preset.Snaplines.Enabled then
         toggleSnaplines()
@@ -1013,6 +1076,7 @@ local GlobalDropdown = createDropdownMenu(GlobalButton, {
 local MiscDropdown = createDropdownMenu(MiscButton, {
     {Name = "BunnyHop", Text = "Bunny Hop", Callback = toggleBunnyHop},
     {Name = "MoonJump", Text = "Moon Jump", Callback = toggleMoonJump},
+    {Name = "FullBright", Text = "FullBright", Callback = toggleFullBright},
     {Name = "Snaplines", Text = "Snaplines", Callback = toggleSnaplines},
     {Name = "NoSpread", Text = "No Spread", Callback = toggleNoSpread},
     {Name = "Noclip", Text = "Noclip", Callback = toggleNoclip}
@@ -1168,6 +1232,9 @@ local function testAllFeatures()
     toggleMoonJump()
     wait(1)
     toggleMoonJump()
+    toggleFullBright()
+    wait(1)
+    toggleFullBright()
     toggleSnaplines()
     wait(1)
     toggleSnaplines()
