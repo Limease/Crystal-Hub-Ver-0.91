@@ -18,6 +18,7 @@ ScreenGui.Name = "XenoGUI"
 ScreenGui.Parent = game:GetService("CoreGui")
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
+ScreenGui.Enabled = true -- Гарантируем, что GUI будет видимым сразу
 
 -- Суперэллипс
 local function applySuperEllipseCorner(frame, cornerRadius)
@@ -36,6 +37,7 @@ MainFrame.BorderColor3 = GUI.BorderColor
 MainFrame.BorderSizePixel = 2
 MainFrame.Position = GUI.Position
 MainFrame.Size = GUI.Size
+MainFrame.Visible = true -- Гарантируем видимость
 applySuperEllipseCorner(MainFrame, 20)
 
 -- Фрейм для вкладок
@@ -551,6 +553,56 @@ local function toggleESP()
     print("ESP: " .. (ESP.Enabled and "ON" or "OFF"))
 end
 
+-- XRay
+local XRay = {
+    Enabled = false,
+    Transparency = 0.5, -- 50% прозрачность
+    OriginalTransparency = {},
+    Connection = nil
+}
+
+local function toggleXRay()
+    XRay.Enabled = not XRay.Enabled
+    
+    if XRay.Enabled then
+        print("XRay: ON")
+        
+        -- Сохраняем оригинальные значения прозрачности
+        XRay.OriginalTransparency = {}
+        
+        -- Применяем эффект XRay ко всем частям
+        for _, part in ipairs(workspace:GetDescendants()) do
+            if part:IsA("BasePart") and part.Transparency < XRay.Transparency then
+                XRay.OriginalTransparency[part] = part.Transparency
+                part.Transparency = XRay.Transparency
+            end
+        end
+        
+        -- Создаем соединение для автоматического применения к новым частям
+        XRay.Connection = workspace.DescendantAdded:Connect(function(part)
+            if XRay.Enabled and part:IsA("BasePart") and part.Transparency < XRay.Transparency then
+                XRay.OriginalTransparency[part] = part.Transparency
+                part.Transparency = XRay.Transparency
+            end
+        end)
+    else
+        print("XRay: OFF")
+        
+        -- Восстанавливаем оригинальные значения прозрачности
+        for part, transparency in pairs(XRay.OriginalTransparency) do
+            if part and part.Parent then
+                part.Transparency = transparency
+            end
+        end
+        XRay.OriginalTransparency = {}
+        
+        if XRay.Connection then
+            XRay.Connection:Disconnect()
+            XRay.Connection = nil
+        end
+    end
+end
+
 -- Bunny Hop
 local BunnyHop = {
     Enabled = false,
@@ -953,6 +1005,7 @@ local Presets = {
         default = {
             Aimbot = {FOV = 300, Smoothness = 0.2},
             ESP = {Enabled = false},
+            XRay = {Enabled = false},
             Fly = {Enabled = false, Speed = 50},
             BunnyHop = {Enabled = false, Speed = 30, JumpPower = 50},
             MoonJump = {Enabled = false, JumpPower = 100},
@@ -973,6 +1026,9 @@ local function savePreset(name)
         },
         ESP = {
             Enabled = ESP.Enabled
+        },
+        XRay = {
+            Enabled = XRay.Enabled
         },
         Fly = {
             Enabled = Fly.Enabled,
@@ -1018,6 +1074,11 @@ local function loadPreset(name)
     -- ESP
     if preset.ESP.Enabled ~= nil and ESP.Enabled ~= preset.ESP.Enabled then
         toggleESP()
+    end
+    
+    -- XRay
+    if preset.XRay and preset.XRay.Enabled ~= nil and XRay.Enabled ~= preset.XRay.Enabled then
+        toggleXRay()
     end
     
     -- Fly
@@ -1068,10 +1129,11 @@ end
 local GlobalDropdown = createDropdownMenu(GlobalButton, {
     {Name = "Aimbot", Text = "Aimbot", Callback = toggleAimbot, KeepOpen = true},
     {Name = "ESP", Text = "ESP", Callback = toggleESP, KeepOpen = true},
+    {Name = "XRay", Text = "XRay", Callback = toggleXRay, KeepOpen = true},
     {Name = "Fly", Text = "Fly", Callback = toggleFly, KeepOpen = true},
     {Name = "FOVSlider", Text = "", Height = 50},
     {Name = "SmoothnessSlider", Text = "", Height = 50}
-}, 210)
+}, 250)
 
 local MiscDropdown = createDropdownMenu(MiscButton, {
     {Name = "BunnyHop", Text = "Bunny Hop", Callback = toggleBunnyHop},
@@ -1223,6 +1285,9 @@ local function testAllFeatures()
     toggleESP()
     wait(1)
     toggleESP()
+    toggleXRay()
+    wait(1)
+    toggleXRay()
     toggleFly()
     wait(1)
     toggleFly()
