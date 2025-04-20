@@ -1,6 +1,7 @@
 -- Настройки GUI
 local GUI = {
     Size = UDim2.new(0, 550, 0, 400),
+    MinimizedSize = UDim2.new(0, 550, 0, 30), -- Размер свернутого состояния
     Position = UDim2.new(0.5, -275, 0.5, -200),
     BackgroundColor = Color3.fromRGB(15, 15, 15),
     BorderColor = Color3.fromRGB(50, 50, 50),
@@ -9,7 +10,8 @@ local GUI = {
     TextColor = Color3.fromRGB(220, 220, 220),
     AccentColor = Color3.fromRGB(0, 150, 255),
     NoSpreadColor = Color3.fromRGB(255, 100, 100),
-    NoclipColor = Color3.fromRGB(150, 0, 255)
+    NoclipColor = Color3.fromRGB(150, 0, 255),
+    Minimized = false -- Флаг свернутого состояния
 }
 
 -- Основное окно
@@ -18,7 +20,7 @@ ScreenGui.Name = "XenoGUI"
 ScreenGui.Parent = game:GetService("CoreGui")
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Enabled = true -- Гарантируем, что GUI будет видимым сразу
+ScreenGui.Enabled = true
 
 -- Суперэллипс
 local function applySuperEllipseCorner(frame, cornerRadius)
@@ -37,8 +39,44 @@ MainFrame.BorderColor3 = GUI.BorderColor
 MainFrame.BorderSizePixel = 2
 MainFrame.Position = GUI.Position
 MainFrame.Size = GUI.Size
-MainFrame.Visible = true -- Гарантируем видимость
+MainFrame.Visible = true
 applySuperEllipseCorner(MainFrame, 20)
+
+-- Фрейм заголовка для перемещения
+local HeaderFrame = Instance.new("Frame")
+HeaderFrame.Name = "HeaderFrame"
+HeaderFrame.Parent = MainFrame
+HeaderFrame.BackgroundColor3 = GUI.AccentColor
+HeaderFrame.BorderSizePixel = 0
+HeaderFrame.Position = UDim2.new(0, 0, 0, 0)
+HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
+HeaderFrame.ZIndex = 10
+applySuperEllipseCorner(HeaderFrame, 10)
+
+-- Текст заголовка
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Parent = HeaderFrame
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.Size = UDim2.new(0, 200, 1, 0)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "CRYSTAL HUB"
+TitleLabel.TextColor3 = GUI.TextColor
+TitleLabel.TextSize = 16
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Кнопка сворачивания
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Name = "MinimizeButton"
+MinimizeButton.Parent = HeaderFrame
+MinimizeButton.BackgroundTransparency = 1
+MinimizeButton.Position = UDim2.new(1, -30, 0, 0)
+MinimizeButton.Size = UDim2.new(0, 30, 1, 0)
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = GUI.TextColor
+MinimizeButton.TextSize = 20
 
 -- Фрейм для вкладок
 local TabsFrame = Instance.new("Frame")
@@ -46,7 +84,7 @@ TabsFrame.Name = "TabsFrame"
 TabsFrame.Parent = MainFrame
 TabsFrame.BackgroundColor3 = GUI.TabColor
 TabsFrame.BorderSizePixel = 0
-TabsFrame.Position = UDim2.new(0, 0, 0, 0)
+TabsFrame.Position = UDim2.new(0, 0, 0, 30) -- Смещено вниз на высоту заголовка
 TabsFrame.Size = UDim2.new(1, 0, 0, 40)
 
 -- Контент фрейм
@@ -54,8 +92,66 @@ local ContentFrame = Instance.new("Frame")
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Parent = MainFrame
 ContentFrame.BackgroundTransparency = 1
-ContentFrame.Position = UDim2.new(0, 10, 0, 50)
-ContentFrame.Size = UDim2.new(1, -20, 1, -60)
+ContentFrame.Position = UDim2.new(0, 10, 0, 80) -- 30 (заголовок) + 40 (вкладки) + 10 (отступ)
+ContentFrame.Size = UDim2.new(1, -20, 1, -90) -- Учитываем высоту заголовка и вкладок
+
+-- Функция для перемещения GUI
+local function setupDrag(frame, dragPart)
+    local dragging = false
+    local dragStart, frameStart
+    
+    dragPart.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            frameStart = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    dragPart.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                frameStart.X.Scale, 
+                frameStart.X.Offset + delta.X,
+                frameStart.Y.Scale, 
+                frameStart.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- Функция сворачивания/разворачивания
+local function toggleMinimize()
+    GUI.Minimized = not GUI.Minimized
+    
+    if GUI.Minimized then
+        -- Сворачиваем
+        MainFrame.Size = GUI.MinimizedSize
+        ContentFrame.Visible = false
+        TabsFrame.Visible = false
+        MinimizeButton.Text = "+"
+        
+        -- Скрываем все выпадающие меню
+        if GlobalDropdown then GlobalDropdown.Visible = false end
+        if MiscDropdown then MiscDropdown.Visible = false end
+    else
+        -- Разворачиваем
+        MainFrame.Size = GUI.Size
+        ContentFrame.Visible = true
+        TabsFrame.Visible = true
+        MinimizeButton.Text = "-"
+    end
+end
+
+-- Назначаем обработчики
+setupDrag(MainFrame, HeaderFrame)
+MinimizeButton.MouseButton1Click:Connect(toggleMinimize)
 
 -- Функция для создания кнопок
 local function createTabButton(name, position)
@@ -73,7 +169,7 @@ local function createTabButton(name, position)
     
     applySuperEllipseCorner(button, 8)
     
-    -- Анимка
+    -- Анимация при наведении
     button.MouseEnter:Connect(function()
         game:GetService("TweenService"):Create(button, TweenInfo.new(0.2), {BackgroundColor3 = GUI.AccentColor}):Play()
     end)
@@ -97,7 +193,7 @@ local function createDropdownMenu(parent, buttons, heightOffset)
     dropdown.Parent = parent.Parent
     dropdown.BackgroundColor3 = GUI.TabColor
     dropdown.BorderSizePixel = 0
-    dropdown.Position = UDim2.new(parent.Position.X.Scale, parent.Position.X.Offset, 0, 45)
+    dropdown.Position = UDim2.new(parent.Position.X.Scale, parent.Position.X.Offset, 0, 70) -- 30 (заголовок) + 40 (вкладки)
     dropdown.Size = UDim2.new(parent.Size.X.Scale, parent.Size.X.Offset, 0, (heightOffset or #buttons * 40) + 10)
     dropdown.Visible = false
     dropdown.ZIndex = 10
@@ -190,8 +286,6 @@ local function toggleFly()
     Fly.Connections = {}
     
     if Fly.Enabled then
-        print("Fly: ON")
-        
         -- Создаем физические объекты для полета
         if Fly.BodyVelocity then Fly.BodyVelocity:Destroy() end
         if Fly.BodyGyro then Fly.BodyGyro:Destroy() end
@@ -277,8 +371,6 @@ local function toggleFly()
         -- Изменяем состояние гуманоида
         humanoid:ChangeState(Enum.HumanoidStateType.Flying)
     else
-        print("Fly: OFF")
-        
         -- Удаляем физические объекты
         if Fly.BodyVelocity then
             Fly.BodyVelocity:Destroy()
@@ -297,7 +389,7 @@ local function toggleFly()
     end
 end
 
--- Улучшенный Aimbot с гарантированным включением
+-- Улучшенный Aimbot
 local Aimbot = {
     Enabled = false,
     FOV = 300,
@@ -308,7 +400,6 @@ local Aimbot = {
     FOVCircle = nil
 }
 
--- Функция для обновления FOV Circle
 local function updateFOVCircle()
     if Aimbot.FOVCircle then
         Aimbot.FOVCircle:Remove()
@@ -363,7 +454,6 @@ local function getClosestPlayer()
 end
 
 local function toggleAimbot()
-    -- Всегда отключаем предыдущее соединение, если оно есть
     if Aimbot.Connection then
         Aimbot.Connection:Disconnect()
         Aimbot.Connection = nil
@@ -373,12 +463,9 @@ local function toggleAimbot()
     updateFOVCircle()
     
     if Aimbot.Enabled then
-        print("Aimbot: ON (FOV: "..Aimbot.FOV..")")
-        
         Aimbot.Connection = game:GetService("RunService").RenderStepped:Connect(function()
             if not Aimbot.Enabled then return end
             
-            -- Получаем текущую камеру каждый кадр на случай ее изменения
             local camera = workspace.CurrentCamera
             if not camera then return end
             
@@ -399,7 +486,6 @@ local function toggleAimbot()
             camera.CFrame = CFrame.new(cameraPosition, cameraPosition + newLookVector)
         end)
     else
-        print("Aimbot: OFF")
         if Aimbot.FOVCircle then
             Aimbot.FOVCircle:Remove()
             Aimbot.FOVCircle = nil
@@ -444,13 +530,11 @@ local function updateESP()
         
         local drawings = ESP.Drawings[player]
         
-        -- Настройка рамки
         drawings.Box.Visible = false
         drawings.Box.Color = ESP.BoxColor
         drawings.Box.Thickness = 2
         drawings.Box.Filled = false
         
-        -- Настройка ника
         drawings.Name.Visible = false
         drawings.Name.Color = ESP.BoxColor
         drawings.Name.Size = 14
@@ -458,10 +542,9 @@ local function updateESP()
         drawings.Name.Outline = true
         drawings.Name.Text = player.Name
         
-        -- Настройка здоровья (крупный текст)
         drawings.Health.Visible = false
         drawings.Health.Color = ESP.HealthColor
-        drawings.Health.Size = 20  -- Увеличенный размер шрифта
+        drawings.Health.Size = 20
         drawings.Health.Center = true
         drawings.Health.Outline = true
         drawings.Health.Text = "100%"
@@ -500,28 +583,24 @@ local function updateESP()
             local height = (headPos.Y - rootPos.Y) * 2
             local width = height * 0.6
             
-            -- Рамка
             drawings.Box.Position = Vector2.new(rootPos.X - width/2, rootPos.Y - height/2)
             drawings.Box.Size = Vector2.new(width, height)
             drawings.Box.Visible = true
             
-            -- Ник игрока
             drawings.Name.Position = Vector2.new(rootPos.X, rootPos.Y - height/2 - 20)
             drawings.Name.Visible = true
             
-            -- Здоровье (над ником, крупным шрифтом)
             local healthPercent = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
             drawings.Health.Text = tostring(healthPercent) .. "%"
-            drawings.Health.Position = Vector2.new(rootPos.X, rootPos.Y - height/2 - 45)  -- Выше ника
+            drawings.Health.Position = Vector2.new(rootPos.X, rootPos.Y - height/2 - 45)
             drawings.Health.Visible = true
             
-            -- Меняем цвет здоровья в зависимости от процентов
             if healthPercent > 70 then
-                drawings.Health.Color = Color3.fromRGB(0, 255, 0)  -- Зеленый
+                drawings.Health.Color = Color3.fromRGB(0, 255, 0)
             elseif healthPercent > 30 then
-                drawings.Health.Color = Color3.fromRGB(255, 255, 0)  -- Желтый
+                drawings.Health.Color = Color3.fromRGB(255, 255, 0)
             else
-                drawings.Health.Color = Color3.fromRGB(255, 0, 0)  -- Красный
+                drawings.Health.Color = Color3.fromRGB(255, 0, 0)
             end
         else
             drawings.Box.Visible = false
@@ -530,14 +609,12 @@ local function updateESP()
         end
     end
     
-    -- Создаем ESP для всех игроков
     for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
         if player ~= localPlayer then
             createESP(player)
         end
     end
     
-    -- Обновляем ESP каждый кадр
     game:GetService("RunService").RenderStepped:Connect(function()
         if not ESP.Enabled then return end
         
@@ -550,13 +627,12 @@ end
 local function toggleESP()
     ESP.Enabled = not ESP.Enabled
     updateESP()
-    print("ESP: " .. (ESP.Enabled and "ON" or "OFF"))
 end
 
 -- XRay
 local XRay = {
     Enabled = false,
-    Transparency = 0.5, -- 50% прозрачность
+    Transparency = 0.5,
     OriginalTransparency = {},
     Connection = nil
 }
@@ -565,12 +641,8 @@ local function toggleXRay()
     XRay.Enabled = not XRay.Enabled
     
     if XRay.Enabled then
-        print("XRay: ON")
-        
-        -- Сохраняем оригинальные значения прозрачности
         XRay.OriginalTransparency = {}
         
-        -- Применяем эффект XRay ко всем частям
         for _, part in ipairs(workspace:GetDescendants()) do
             if part:IsA("BasePart") and part.Transparency < XRay.Transparency then
                 XRay.OriginalTransparency[part] = part.Transparency
@@ -578,7 +650,6 @@ local function toggleXRay()
             end
         end
         
-        -- Создаем соединение для автоматического применения к новым частям
         XRay.Connection = workspace.DescendantAdded:Connect(function(part)
             if XRay.Enabled and part:IsA("BasePart") and part.Transparency < XRay.Transparency then
                 XRay.OriginalTransparency[part] = part.Transparency
@@ -586,9 +657,6 @@ local function toggleXRay()
             end
         end)
     else
-        print("XRay: OFF")
-        
-        -- Восстанавливаем оригинальные значения прозрачности
         for part, transparency in pairs(XRay.OriginalTransparency) do
             if part and part.Parent then
                 part.Transparency = transparency
@@ -615,17 +683,13 @@ local function toggleBunnyHop()
     BunnyHop.Enabled = not BunnyHop.Enabled
     
     if BunnyHop.Enabled then
-        print("Bunny Hop: ON")
-        
         local player = game:GetService("Players").LocalPlayer
         local character = player.Character or player.CharacterAdded:Wait()
         local humanoid = character:WaitForChild("Humanoid")
         
-        -- Сохраняем оригинальные значения
         local originalWalkSpeed = humanoid.WalkSpeed
         local originalJumpPower = humanoid.JumpPower
         
-        -- Устанавливаем новые значения
         humanoid.WalkSpeed = BunnyHop.Speed
         humanoid.JumpPower = BunnyHop.JumpPower
         
@@ -641,7 +705,6 @@ local function toggleBunnyHop()
             end
         end)
     else
-        print("Bunny Hop: OFF")
         if BunnyHop.Connection then
             BunnyHop.Connection:Disconnect()
             BunnyHop.Connection = nil
@@ -661,16 +724,11 @@ local function toggleMoonJump()
     MoonJump.Enabled = not MoonJump.Enabled
     
     if MoonJump.Enabled then
-        print("Moon Jump: ON")
-        
         local player = game:GetService("Players").LocalPlayer
         local character = player.Character or player.CharacterAdded:Wait()
         local humanoid = character:WaitForChild("Humanoid")
         
-        -- Сохраняем оригинальное значение
         MoonJump.OriginalJumpPower = humanoid.JumpPower
-        
-        -- Устанавливаем новое значение
         humanoid.JumpPower = MoonJump.JumpPower
         
         MoonJump.Connection = game:GetService("UserInputService").JumpRequest:Connect(function()
@@ -679,9 +737,6 @@ local function toggleMoonJump()
             end
         end)
     else
-        print("Moon Jump: OFF")
-        
-        -- Восстанавливаем оригинальное значение
         if MoonJump.OriginalJumpPower then
             local player = game:GetService("Players").LocalPlayer
             local character = player.Character
@@ -711,9 +766,6 @@ local function toggleFullBright()
     FullBright.Enabled = not FullBright.Enabled
     
     if FullBright.Enabled then
-        print("FullBright: ON")
-        
-        -- Сохраняем оригинальные настройки освещения
         FullBright.OriginalLighting = {
             Ambient = game:GetService("Lighting").Ambient,
             OutdoorAmbient = game:GetService("Lighting").OutdoorAmbient,
@@ -721,13 +773,11 @@ local function toggleFullBright()
             GlobalShadows = game:GetService("Lighting").GlobalShadows
         }
         
-        -- Устанавливаем яркое освещение
         game:GetService("Lighting").Ambient = Color3.new(1, 1, 1)
         game:GetService("Lighting").OutdoorAmbient = Color3.new(1, 1, 1)
         game:GetService("Lighting").Brightness = 2
         game:GetService("Lighting").GlobalShadows = false
         
-        -- Создаем соединение для автоматического восстановления при изменении освещения
         FullBright.Connection = game:GetService("Lighting").Changed:Connect(function()
             if FullBright.Enabled then
                 game:GetService("Lighting").Ambient = Color3.new(1, 1, 1)
@@ -737,9 +787,6 @@ local function toggleFullBright()
             end
         end)
     else
-        print("FullBright: OFF")
-        
-        -- Восстанавливаем оригинальные настройки освещения
         if FullBright.OriginalLighting.Ambient then
             game:GetService("Lighting").Ambient = FullBright.OriginalLighting.Ambient
             game:GetService("Lighting").OutdoorAmbient = FullBright.OriginalLighting.OutdoorAmbient
@@ -830,7 +877,6 @@ end
 local function toggleSnaplines()
     Snaplines.Enabled = not Snaplines.Enabled
     updateSnaplines()
-    print("Snaplines: " .. (Snaplines.Enabled and "ON" or "OFF"))
 end
 
 -- No Spread
@@ -844,8 +890,6 @@ local function toggleNoSpread()
     NoSpread.Enabled = not NoSpread.Enabled
     
     if NoSpread.Enabled then
-        print("No Spread: ON")
-        
         local player = game:GetService("Players").LocalPlayer
         local character = player.Character or player.CharacterAdded:Wait()
         local weapon = character:FindFirstChildOfClass("Tool")
@@ -872,8 +916,6 @@ local function toggleNoSpread()
             end
         end)
     else
-        print("No Spread: OFF")
-        
         for obj, value in pairs(NoSpread.OriginalValues) do
             if obj and obj.Parent then
                 obj.Value = value
@@ -897,8 +939,6 @@ local function toggleNoclip()
     Noclip.Enabled = not Noclip.Enabled
     
     if Noclip.Enabled then
-        print("Noclip: ON")
-        
         Noclip.Connection = game:GetService("RunService").Stepped:Connect(function()
             if not Noclip.Enabled then return end
             
@@ -912,8 +952,6 @@ local function toggleNoclip()
             end
         end)
     else
-        print("Noclip: OFF")
-        
         if Noclip.Connection then
             Noclip.Connection:Disconnect()
             Noclip.Connection = nil
@@ -1056,7 +1094,6 @@ local function savePreset(name)
             Enabled = Noclip.Enabled
         }
     }
-    print("Preset saved: "..name)
 end
 
 local function loadPreset(name)
@@ -1121,7 +1158,6 @@ local function loadPreset(name)
     end
     
     Presets.Current = name
-    print("Preset loaded: "..name)
     return true
 end
 
@@ -1147,31 +1183,29 @@ local MiscDropdown = createDropdownMenu(MiscButton, {
 -- Добавляем ползунки в Global меню
 local fovSlider = createSlider(GlobalDropdown:FindFirstChild("FOVSlider"), "Aimbot FOV", 50, 1000, Aimbot.FOV, function(value)
     Aimbot.FOV = value
-    -- При изменении FOV перезагружаем Aimbot, если он включен
     if Aimbot.Enabled then
         local wasEnabled = Aimbot.Enabled
-        toggleAimbot() -- Выключаем
+        toggleAimbot()
         if wasEnabled then
-            toggleAimbot() -- Включаем снова с новыми настройками
+            toggleAimbot()
         end
     else
-        updateFOVCircle() -- Просто обновляем круг, если Aimbot выключен
+        updateFOVCircle()
     end
 end)
 
 local smoothnessSlider = createSlider(GlobalDropdown:FindFirstChild("SmoothnessSlider"), "Smoothness", 0.1, 1, Aimbot.Smoothness, function(value)
     Aimbot.Smoothness = value
-    -- При изменении Smoothness перезагружаем Aimbot, если он включен
     if Aimbot.Enabled then
         local wasEnabled = Aimbot.Enabled
-        toggleAimbot() -- Выключаем
+        toggleAimbot()
         if wasEnabled then
-            toggleAimbot() -- Включаем снова с новыми настройками
+            toggleAimbot()
         end
     end
 end)
 
--- Добавляем кнопки для пресетов
+-- Фрейм для пресетов
 local presetsFrame = Instance.new("Frame")
 presetsFrame.Name = "PresetsFrame"
 presetsFrame.Parent = ContentFrame
@@ -1230,20 +1264,20 @@ loadButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- NEW: Контент для вкладки More
+-- Контент для вкладки More
 local MoreContent = Instance.new("Frame")
 MoreContent.Name = "MoreContent"
 MoreContent.Parent = ContentFrame
 MoreContent.BackgroundTransparency = 1
 MoreContent.Size = UDim2.new(1, 0, 1, 0)
-MoreContent.Visible = false -- Сначала скрыто
+MoreContent.Visible = false
 
 local telegramLabel = Instance.new("TextLabel")
 telegramLabel.Name = "TelegramLabel"
 telegramLabel.Parent = MoreContent
 telegramLabel.BackgroundTransparency = 1
 telegramLabel.Size = UDim2.new(1, 0, 0, 30)
-telegramLabel.Position = UDim2.new(0, 0, 0.6, 0) -- Позиция ниже центра
+telegramLabel.Position = UDim2.new(0, 0, 0.6, 0)
 telegramLabel.Font = Enum.Font.GothamBold
 telegramLabel.Text = "t.me/crystalhubultimate"
 telegramLabel.TextColor3 = GUI.AccentColor
@@ -1254,68 +1288,25 @@ telegramLabel.TextXAlignment = Enum.TextXAlignment.Center
 GlobalButton.MouseButton1Click:Connect(function()
     GlobalDropdown.Visible = not GlobalDropdown.Visible
     MiscDropdown.Visible = false
-    MoreContent.Visible = false -- Скрываем контент More
+    MoreContent.Visible = false
 end)
 
 MiscButton.MouseButton1Click:Connect(function()
     MiscDropdown.Visible = not MiscDropdown.Visible
     GlobalDropdown.Visible = false
-    MoreContent.Visible = false -- Скрываем контент More
+    MoreContent.Visible = false
 end)
 
 MoreButton.MouseButton1Click:Connect(function()
     GlobalDropdown.Visible = false
     MiscDropdown.Visible = false
-    MoreContent.Visible = true -- Показываем контент More
+    MoreContent.Visible = true
 end)
 
 -- Закрытие по RShift
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.RightShift then
         ScreenGui.Enabled = not ScreenGui.Enabled
-    end
-end)
-
--- Проверка всех функций
-local function testAllFeatures()
-    print("Testing all features...")
-    toggleAimbot()
-    wait(1)
-    toggleAimbot()
-    toggleESP()
-    wait(1)
-    toggleESP()
-    toggleXRay()
-    wait(1)
-    toggleXRay()
-    toggleFly()
-    wait(1)
-    toggleFly()
-    toggleBunnyHop()
-    wait(1)
-    toggleBunnyHop()
-    toggleMoonJump()
-    wait(1)
-    toggleMoonJump()
-    toggleFullBright()
-    wait(1)
-    toggleFullBright()
-    toggleSnaplines()
-    wait(1)
-    toggleSnaplines()
-    toggleNoSpread()
-    wait(1)
-    toggleNoSpread()
-    toggleNoclip()
-    wait(1)
-    toggleNoclip()
-    print("All features tested!")
-end
-
--- Команда для тестирования
-game:GetService("Players").LocalPlayer.Chatted:Connect(function(message)
-    if message:lower() == "/testgui" then
-        testAllFeatures()
     end
 end)
 
